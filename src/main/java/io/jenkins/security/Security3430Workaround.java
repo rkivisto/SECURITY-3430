@@ -33,16 +33,20 @@ import java.lang.instrument.Instrumentation;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.security.ProtectionDomain;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 
 public class Security3430Workaround implements ClassFileTransformer {
     private static final String LOG_PREFIX = "SECURITY-3430 Workaround: ";
-    private static final String SEVERE_LOG_PREFIX = "SEVERE " + LOG_PREFIX;
+    private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSZ");
+
     private static void logMessage(String message) {
-        System.out.println(LOG_PREFIX + message);
+        System.out.println(ZonedDateTime.now().format(formatter) + " INFO " + LOG_PREFIX + message);
     }
+
     private static void logSevereMessage(String message) {
-        System.err.println(SEVERE_LOG_PREFIX + message);
+        System.err.println(ZonedDateTime.now().format(formatter) + " SEVERE " + LOG_PREFIX + message);
     }
 
     @SuppressFBWarnings(value = "DM_EXIT", justification = "Failure to transform might result in unsafe state, so shutting down is intentional")
@@ -107,19 +111,21 @@ public class Security3430Workaround implements ClassFileTransformer {
     @SuppressFBWarnings(value = {"PATH_TRAVERSAL_IN", "DM_EXIT"}, justification = "CLI behavior")
     public static void main(String[] args) throws IOException {
         if (args.length == 0) {
-            logSevereMessage("This file is a Java agent addressing SECURITY-3430/CVE-2024-43044 in older releases of Jenkins by patching bytecode.\n" +
-                "Usage:\n" +
-                "    java -javaagent:/path/to/security3430-workaround.jar -jar jenkins.war\n" +
-                "Additionally, this file can be used as an executable jar to patch a RemoteClassLoader$ClassLoaderProxy.class file.\n" +
-                "Usage:\n" +
-                "    java -jar /path/to/security3430-workaround.jar <source> <target>");
+            logSevereMessage(
+                    "This file is a Java agent addressing SECURITY-3430/CVE-2024-43044 in older releases of Jenkins by patching bytecode.\n"
+                            + "Usage:\n"
+                            + "    java -javaagent:/path/to/security3430-workaround.jar -jar jenkins.war\n"
+                            + "Additionally, this file can be used as an executable jar to patch a RemoteClassLoader$ClassLoaderProxy.class file.\n"
+                            + "Usage:\n"
+                            + "    java -jar /path/to/security3430-workaround.jar <source> <target>");
             System.exit(1);
             return;
         }
         final byte[] original = Files.readAllBytes(new File(args[0]).toPath());
         final byte[] modified = innerTransform(original);
         if (modified == null) {
-            logSevereMessage("Failed to transform the specified file. Is it a RemoteClassLoader$ClassLoaderProxy.class?");
+            logSevereMessage(
+                    "Failed to transform the specified file. Is it a RemoteClassLoader$ClassLoaderProxy.class?");
             System.exit(1);
             return;
         }
