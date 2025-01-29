@@ -47,7 +47,7 @@ public class Security3430Workaround implements ClassFileTransformer {
 
     private static void logMessage(Level level, String message) {
         PrintStream stream = (level == Level.SEVERE) ? System.err : System.out;
-        stream.println(ZonedDateTime.now().format(formatter) + " " + level + " " + LOG_PREFIX + " " + message);
+        stream.printf("%s %s %s %s%n", ZonedDateTime.now().format(formatter), level, LOG_PREFIX, message);
     }
 
     @SuppressFBWarnings(value = "DM_EXIT", justification = "Failure to transform might result in unsafe state, so shutting down is intentional")
