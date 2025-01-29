@@ -47,8 +47,8 @@ Both need to set before the class is loaded and an attempt to transform is made,
 
 ## Logging
 
-Informational log messages are prefixed with `INFO SECURITY-3430 Workaround: `.
-Messages prefixed with `SEVERE SECURITY-3430 Workaround: ` indicate a failure to transform.
+Informational log messages are prefixed with `INFO io.jenkins.security.Security3430Workaround `.
+Messages prefixed with `SEVERE io.jenkins.security.Security3430Workaround ` indicate a failure to transform.
 This is not using the typical `java.util.logging.Logger` used throughout Jenkins, but rather `System.out` and `System.err` due to this code running as a Java agent that can interfere with Jenkins logging when using the --logfile argument.
 
 ## Testing

@@ -22,7 +22,9 @@ public class LoggingTest {
         } catch (IllegalClassFormatException e) {
             // ignore
         } finally {
-            assertTrue(outContent.toString().contains("INFO SECURITY-3430 Workaround: Skipping transformation of"));
+            assertTrue(outContent
+                    .toString()
+                    .contains("INFO io.jenkins.security.Security3430Workaround Skipping transformation of "));
             System.clearProperty(Security3430Workaround.class.getName() + ".DISABLE");
             System.setOut(originalOut);
         }
