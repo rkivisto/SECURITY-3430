@@ -27,26 +27,27 @@ package io.jenkins.security;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.File;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.IllegalClassFormatException;
 import java.lang.instrument.Instrumentation;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.security.ProtectionDomain;
+import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
+import java.util.logging.Level;
 
 public class Security3430Workaround implements ClassFileTransformer {
-    private static final String LOG_PREFIX = "SECURITY-3430 Workaround: ";
-    private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSZ");
+    private static final String LOG_PREFIX = Security3430Workaround.class.getName();
+    private static final DateTimeFormatter formatter =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSZ").withZone(ZoneOffset.UTC);
 
-    private static void logMessage(String message) {
-        System.out.println(ZonedDateTime.now().format(formatter) + " INFO " + LOG_PREFIX + message);
-    }
-
-    private static void logSevereMessage(String message) {
-        System.err.println(ZonedDateTime.now().format(formatter) + " SEVERE " + LOG_PREFIX + message);
+    private static void logMessage(Level level, String message) {
+        PrintStream stream = (level == Level.SEVERE) ? System.err : System.out;
+        stream.println(ZonedDateTime.now().format(formatter) + " " + level + " " + LOG_PREFIX + " " + message);
     }
 
     @SuppressFBWarnings(value = "DM_EXIT", justification = "Failure to transform might result in unsafe state, so shutting down is intentional")
@@ -58,23 +59,28 @@ public class Security3430Workaround implements ClassFileTransformer {
 
         final String systemPropertyName = Security3430Workaround.class.getName() + ".DISABLE";
         if (Boolean.getBoolean(systemPropertyName)) {
-            logMessage("Skipping transformation of " + className + " because " + systemPropertyName + " is set");
+            logMessage(
+                    Level.INFO,
+                    "Skipping transformation of " + className + " because " + systemPropertyName + " is set");
             return null;
         }
 
-        logMessage("Performing transformation of " + className);
+        logMessage(Level.INFO, "Performing transformation of " + className);
 
         final byte[] transformed = innerTransform(classfileBuffer);
         if (transformed != null) {
             return transformed;
         }
 
-        logSevereMessage("Failed to find the 'fetchJar' in the class file, cannot prevent exploitation.");
+        logMessage(Level.SEVERE, "Failed to find the 'fetchJar' in the class file, cannot prevent exploitation.");
         final String skipShutdownPropertyName = Security3430Workaround.class.getName() + ".SKIP_SHUTDOWN";
         if (Boolean.getBoolean(skipShutdownPropertyName)) {
-            logSevereMessage("Skipping shutdown because " + skipShutdownPropertyName + " is set. The instance is not protected from SECURITY-3430.");
+            logMessage(
+                    Level.SEVERE,
+                    "Skipping shutdown because " + skipShutdownPropertyName
+                            + " is set. The instance is not protected from SECURITY-3430.");
         } else {
-            logSevereMessage("Shutting down.");
+            logMessage(Level.SEVERE, "Shutting down.");
             System.exit(1);
         }
         return null;
@@ -104,14 +110,15 @@ public class Security3430Workaround implements ClassFileTransformer {
     }
 
     public static void premain(String args, Instrumentation instrumentation) {
-        logMessage("Setting up " + Security3430Workaround.class.getName());
+        logMessage(Level.INFO, "Setting up " + Security3430Workaround.class.getName());
         instrumentation.addTransformer(new Security3430Workaround());
     }
 
     @SuppressFBWarnings(value = {"PATH_TRAVERSAL_IN", "DM_EXIT"}, justification = "CLI behavior")
     public static void main(String[] args) throws IOException {
         if (args.length == 0) {
-            logSevereMessage(
+            logMessage(
+                    Level.SEVERE,
                     "This file is a Java agent addressing SECURITY-3430/CVE-2024-43044 in older releases of Jenkins by patching bytecode.\n"
                             + "Usage:\n"
                             + "    java -javaagent:/path/to/security3430-workaround.jar -jar jenkins.war\n"
@@ -124,7 +131,8 @@ public class Security3430Workaround implements ClassFileTransformer {
         final byte[] original = Files.readAllBytes(new File(args[0]).toPath());
         final byte[] modified = innerTransform(original);
         if (modified == null) {
-            logSevereMessage(
+            logMessage(
+                    Level.SEVERE,
                     "Failed to transform the specified file. Is it a RemoteClassLoader$ClassLoaderProxy.class?");
             System.exit(1);
             return;
